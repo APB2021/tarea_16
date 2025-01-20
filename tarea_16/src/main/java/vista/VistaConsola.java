@@ -52,19 +52,26 @@ public class VistaConsola implements IVista {
 	 * Imprime las opciones disponibles en el menú principal.
 	 */
 	private void imprimirMenu() {
-		System.out.println("---- Menú Principal ----");
-		System.out.println("1. Insertar nuevo alumno");
-		System.out.println("2. Insertar nuevo grupo");
-		System.out.println("3. Mostrar todos los alumnos");
-		System.out.println("4. Guardar todos los alumnos en un fichero de texto");
-		System.out.println("5. Leer alumnos de un fichero de texto y guardarlos en la BD");
-		System.out.println("6. Modificar el nombre de un alumno por su NIA");
-		System.out.println("7. Eliminar un alumno a partir de su NIA");
-		System.out.println("8. Eliminar los alumnos del grupo indicado");
-		System.out.println("9. Guardar grupos y alumnos en un archivo XML");
-		System.out.println("10. Leer un archivo XML de grupos y guardar los datos en la BD");
-		System.out.println("0. Salir");
-		System.out.println("-------------------------");
+
+		String textoMenu = """
+				---- Menú Principal -------------------------------------------
+				1. Insertar nuevo alumno.
+				2. Insertar nuevo grupo.
+				3. Mostrar todos los alumnos.
+				4. Guardar todos los alumnos en un fichero de texto.
+				5. Leer alumnos de un fichero de texto y guardarlos en la BD.
+				6. Modificar el nombre de un alumno por su NIA.
+				7. Eliminar un alumno a partir de su NIA.
+				8. Eliminar los alumnos del grupo indicado.
+				9. Guardar grupos y alumnos en un archivo XML.
+				10. Leer un archivo XML de grupos y guardar los datos en la BD.
+				---- Menú Tarea 16 --------------------------------------------
+				11. Mostrar todos los alumnos del grupo elegido.
+				0. Salir.
+				---------------------------------------------------------------
+				""";
+
+		System.out.println(textoMenu);
 	}
 
 	/**
@@ -87,6 +94,8 @@ public class VistaConsola implements IVista {
 		case 8 -> eliminarAlumnosPorGrupo();
 		case 9 -> guardarGruposEnXML();
 		case 10 -> leerYGuardarGruposXML();
+		// Tarea 16:
+		case 11 -> mostrarAlumnosPorGrupo(modelo);
 		case 0 -> System.out.println("Saliendo del programa...");
 		default -> System.out.println("Opción no válida. Intenta de nuevo.");
 		}
@@ -408,23 +417,18 @@ public class VistaConsola implements IVista {
 	 * se muestra un mensaje de error.
 	 */
 	public void leerYGuardarGruposXML() {
-		// Variable para almacenar la conexión a la base de datos
-		Connection conexionBD = null;
+		// Ruta fija del archivo XML de grupos
+		String rutaArchivo = "grupos.xml";
 
-		try {
-			// Obtenemos la conexión a la base de datos mediante la clase ConexionBDMySQL
-			conexionBD = PoolConexiones.getConnection();
+		// Verificamos si el archivo existe
+		File archivoXML = new File(rutaArchivo);
+		if (!archivoXML.exists()) {
+			System.out.println("El archivo XML no existe en la ruta especificada: " + rutaArchivo);
+			return; // Salimos del método si el archivo no existe
+		}
 
-			// Ruta fija del archivo XML de grupos
-			String rutaArchivo = "grupos.xml";
-
-			// Verificamos si el archivo existe
-			File archivoXML = new File(rutaArchivo);
-			if (!archivoXML.exists()) {
-				System.out.println("El archivo XML no existe en la ruta especificada: " + rutaArchivo);
-				return; // Salimos del método si el archivo no existe
-			}
-
+		// Usamos try-with-resources para manejar la conexión
+		try (Connection conexionBD = PoolConexiones.getConnection()) {
 			// Llamamos al método de GestorGrupos para leer los grupos en el archivo XML
 			if (AlumnosBD.leerYGuardarGruposXML(rutaArchivo, conexionBD)) {
 				// Si el proceso es exitoso, mostramos un mensaje de éxito
@@ -433,22 +437,26 @@ public class VistaConsola implements IVista {
 				// Si hubo un error en el proceso, mostramos un mensaje de fallo
 				System.out.println("Error al procesar el archivo XML.");
 			}
-
 		} catch (Exception e) {
 			// Capturamos cualquier excepción y mostramos el mensaje de error
 			System.out.println("Ocurrió un error al leer los grupos en XML: " + e.getMessage());
-		} finally {
-			// Cerramos la conexión a la base de datos en el bloque finally
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
 		}
-
 	}
 
+	// Tarea 16:
+
+	/**
+	 * Muestra los alumnos del grupo seleccionado por el usuario.
+	 * 
+	 * @param modelo Objeto que implementa la interfaz IAlumnosDao para realizar
+	 *               operaciones con la base de datos.
+	 */
+	private void mostrarAlumnosPorGrupo(IAlumnosDao modelo) {
+		try (Connection conexionBD = PoolConexiones.getConnection()) {
+			// Llamar al método mostrarAlumnosPorGrupo desde el modelo (AlumnosBD)
+			((AlumnosBD) modelo).mostrarAlumnosPorGrupo(conexionBD);
+		} catch (Exception e) {
+			System.out.println("Se produjo un error al intentar mostrar los alumnos por grupo. Revisa los logs.");
+		}
+	}
 }
