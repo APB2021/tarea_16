@@ -12,14 +12,16 @@ public interface IVista {
 	// case 2:
 	public void insertarNuevoGrupo(IAlumnosDao modelo);
 
-	// case 3:
-	public void mostrarTodosLosAlumnos();
+	// cases 3 y 12:
+	public void mostrarTodosLosAlumnos(boolean mostrarTodaLaInformacion);
 
 	// case 4:
 	public void guardarAlumnosEnFicheroTexto();
 
 	// case 5:
 	public void leerAlumnosDesdeFichero();
+
+	// MÉTODO GENÉRICO:
 
 	// case 6:
 	public void modificarNombreAlumnoPorNia();
@@ -35,5 +37,8 @@ public interface IVista {
 
 	// case 10:
 	public void leerYGuardarGruposXML();
+
+	// case 11:
+	public void mostrarAlumnosPorGrupo(IAlumnosDao modelo);
 
 }

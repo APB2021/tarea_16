@@ -15,6 +15,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Scanner;
+import java.util.function.Consumer;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -219,137 +220,152 @@ public class AlumnosBD implements IAlumnosDao {
 	}
 
 	/**
-	 * Muestra todos los alumnos con sus respectivos grupos.
+	 * Muestra todos los alumnos registrados.
 	 * 
-	 * @param conexionBD La conexión a la base de datos.
+	 * @param conexionBD     La conexión a la base de datos.
+	 * @param mostrarDetalle Indica si se debe mostrar toda la información (true)
+	 *                       o solo NIA y nombre (false).
 	 * @return true si se muestra la lista correctamente, false en caso contrario.
 	 */
 	@Override
-	public boolean mostrarTodosLosAlumnos(Connection conexionBD) {
-		String sql = """
-				    SELECT a.nia, a.nombre, a.apellidos, a.genero, a.fechaNacimiento,
-				           a.ciclo, a.curso, g.nombreGrupo
-				    FROM alumnos a
-				    JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
-				    ORDER BY a.nia
-				""";
+	public boolean mostrarTodosLosAlumnos(Connection conexionBD, boolean mostrarTodaLaInformacion) {
+	    String sql = """
+	                SELECT a.nia, a.nombre, a.apellidos, a.genero, a.fechaNacimiento,
+	                       a.ciclo, a.curso, g.nombreGrupo
+	                FROM alumnos a
+	                LEFT JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
+	                ORDER BY a.nia
+	            """;
 
-		try (PreparedStatement sentencia = conexionBD.prepareStatement(sql);
-				ResultSet resultado = sentencia.executeQuery()) {
+	    try (PreparedStatement sentencia = conexionBD.prepareStatement(sql);
+	         ResultSet resultado = sentencia.executeQuery()) {
 
-			if (!resultado.isBeforeFirst()) {
-				System.out.println("No hay alumnos registrados.");
-				loggerGeneral.info("La consulta de alumnos no devolvió resultados.");
-				return false;
-			}
+	        if (!resultado.isBeforeFirst()) {
+	            System.out.println("No hay alumnos registrados.");
+	            loggerGeneral.info("La consulta de alumnos no devolvió resultados.");
+	            return false;
+	        }
 
-			System.out.println("Lista de alumnos registrados:");
-			loggerGeneral.info("Mostrando la lista de alumnos registrados.");
+	        if (mostrarTodaLaInformacion) {
+	            System.out.println("Lista completa de alumnos registrados:");
+	        } else {
+	            System.out.println("Lista de alumnos (NIA y Nombre):");
+	        }
+	        loggerGeneral.info("Mostrando la lista de alumnos registrados.");
 
-			while (resultado.next()) {
-				int nia = resultado.getInt("nia");
-				String nombre = resultado.getString("nombre");
-				String apellidos = resultado.getString("apellidos");
-				String genero = resultado.getString("genero");
-				Date fechaNacimiento = resultado.getDate("fechaNacimiento");
-				String ciclo = resultado.getString("ciclo");
-				String curso = resultado.getString("curso");
-				String nombreGrupo = resultado.getString("nombreGrupo");
+	        while (resultado.next()) {
+	            int nia = resultado.getInt("nia");
+	            String nombre = resultado.getString("nombre");
 
-				// Mostrar los datos del alumno y del grupo
-				System.out.printf("""
-						NIA: %d
-						Nombre: %s
-						Apellidos: %s
-						Género: %s
-						Fecha de nacimiento: %s
-						Ciclo: %s
-						Curso: %s
-						Grupo: %s
-						-------------------------
-						""", nia, nombre, apellidos, genero, fechaNacimiento, ciclo, curso, nombreGrupo);
-			}
-			return true;
-		} catch (SQLException e) {
-			loggerExcepciones.error("Error al recuperar la lista de alumnos: {}", e.getMessage(), e);
-			System.out.println("Se produjo un error al recuperar los alumnos. Revisa los logs para más detalles.");
-			return false;
-		}
+	            if (mostrarTodaLaInformacion) {
+	                // Mostrar toda la información
+	                String apellidos = resultado.getString("apellidos");
+	                String genero = resultado.getString("genero");
+	                Date fechaNacimiento = resultado.getDate("fechaNacimiento");
+	                String ciclo = resultado.getString("ciclo");
+	                String curso = resultado.getString("curso");
+	                String nombreGrupo = resultado.getString("nombreGrupo");
+
+	                System.out.printf("""
+	                        NIA: %d
+	                        Nombre: %s
+	                        Apellidos: %s
+	                        Género: %s
+	                        Fecha de nacimiento: %s
+	                        Ciclo: %s
+	                        Curso: %s
+	                        Grupo: %s
+	                        -------------------------
+	                        """, nia, nombre, apellidos, genero, fechaNacimiento, ciclo, curso,
+	                        nombreGrupo == null ? "Sin grupo" : nombreGrupo);
+	            } else {
+	                // Mostrar solo NIA y nombre
+	                System.out.printf("NIA: %d, Nombre: %s%n", nia, nombre);
+	            }
+	        }
+	        return true;
+	    } catch (SQLException e) {
+	        loggerExcepciones.error("Error al recuperar la lista de alumnos: {}", e.getMessage(), e);
+	        System.out.println("Se produjo un error al recuperar los alumnos. Revisa los logs para más detalles.");
+	        return false;
+	    }
 	}
+
 
 	/**
 	 * Guarda todos los alumnos en un fichero de texto. La información incluye sus
-	 * datos y el grupo al que pertenecen.
+	 * datos y el grupo al que pertenecen. Los alumnos se ordenan de forma ascendente por su NIA.
 	 * 
 	 * @param conexionBD Conexión a la base de datos MySQL.
 	 */
 	@Override
 	public void guardarAlumnosEnFicheroTexto(Connection conexionBD) {
-		String nombreFichero = "alumnos.txt";
-		File fichero = new File(nombreFichero);
+	    String nombreFichero = "alumnos.txt";
+	    File fichero = new File(nombreFichero);
 
-		// Verificar si el archivo existe y pedir confirmación para sobreescribirlo
-		if (fichero.exists()) {
-			System.out.print("El fichero ya existe. ¿Desea sobreescribirlo? (S/N): ");
-			char respuesta = sc.nextLine().toUpperCase().charAt(0);
-			if (respuesta != 'S') {
-				System.out.println("Operación cancelada. El fichero no se sobrescribirá.");
-				loggerGeneral.info("El usuario decidió no sobrescribir el fichero '{}'.", nombreFichero);
-				return;
-			}
-		}
+	    // Verificar si el archivo existe y pedir confirmación para sobreescribirlo
+	    if (fichero.exists()) {
+	        System.out.print("El fichero ya existe. ¿Desea sobreescribirlo? (S/N): ");
+	        char respuesta = sc.nextLine().toUpperCase().charAt(0);
+	        if (respuesta != 'S') {
+	            System.out.println("Operación cancelada. El fichero no se sobrescribirá.");
+	            loggerGeneral.info("El usuario decidió no sobrescribir el fichero '{}'.", nombreFichero);
+	            return;
+	        }
+	    }
 
-		String sql = """
-				    SELECT a.nia, a.nombre, a.apellidos, a.genero,
-				           a.fechaNacimiento, a.ciclo, a.curso, g.nombreGrupo
-				    FROM alumnos a
-				    JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
-				""";
+	    String sql = """
+	                SELECT a.nia, a.nombre, a.apellidos, a.genero,
+	                       a.fechaNacimiento, a.ciclo, a.curso, g.nombreGrupo
+	                FROM alumnos a
+	                JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
+	                ORDER BY a.nia ASC
+	            """;
 
-		// Intentar escribir en el fichero
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(fichero));
-				PreparedStatement sentencia = conexionBD.prepareStatement(sql);
-				ResultSet resultado = sentencia.executeQuery()) {
+	    // Intentar escribir en el fichero
+	    try (BufferedWriter writer = new BufferedWriter(new FileWriter(fichero));
+	         PreparedStatement sentencia = conexionBD.prepareStatement(sql);
+	         ResultSet resultado = sentencia.executeQuery()) {
 
-			// Escribir encabezados en el fichero
-			writer.write("NIA,Nombre,Apellidos,Género,Fecha Nacimiento,Ciclo,Curso,Nombre del Grupo");
-			writer.newLine();
+	        // Escribir encabezados en el fichero
+	        writer.write("NIA,Nombre,Apellidos,Género,Fecha Nacimiento,Ciclo,Curso,Nombre del Grupo");
+	        writer.newLine();
 
-			if (!resultado.isBeforeFirst()) {
-				System.out.println("No hay alumnos registrados para guardar en el fichero.");
-				loggerGeneral.info("No se encontraron alumnos en la base de datos para guardar en el fichero.");
-				return;
-			}
+	        if (!resultado.isBeforeFirst()) {
+	            System.out.println("No hay alumnos registrados para guardar en el fichero.");
+	            loggerGeneral.info("No se encontraron alumnos en la base de datos para guardar en el fichero.");
+	            return;
+	        }
 
-			// Escribir los datos de los alumnos en el fichero
-			while (resultado.next()) {
-				int nia = resultado.getInt("nia");
-				String nombre = resultado.getString("nombre");
-				String apellidos = resultado.getString("apellidos");
-				String genero = resultado.getString("genero");
-				String fechaNacimiento = resultado.getString("fechaNacimiento");
-				String ciclo = resultado.getString("ciclo");
-				String curso = resultado.getString("curso");
-				String nombreGrupo = resultado.getString("nombreGrupo");
+	        // Escribir los datos de los alumnos en el fichero
+	        while (resultado.next()) {
+	            int nia = resultado.getInt("nia");
+	            String nombre = resultado.getString("nombre");
+	            String apellidos = resultado.getString("apellidos");
+	            String genero = resultado.getString("genero");
+	            String fechaNacimiento = resultado.getString("fechaNacimiento");
+	            String ciclo = resultado.getString("ciclo");
+	            String curso = resultado.getString("curso");
+	            String nombreGrupo = resultado.getString("nombreGrupo");
 
-				// Escribir cada fila de datos
-				writer.write(String.format("%d,%s,%s,%s,%s,%s,%s,%s", nia, nombre, apellidos, genero, fechaNacimiento,
-						ciclo, curso, nombreGrupo));
-				writer.newLine();
-			}
+	            // Escribir cada fila de datos
+	            writer.write(String.format("%d,%s,%s,%s,%s,%s,%s,%s", nia, nombre, apellidos, genero, fechaNacimiento,
+	                    ciclo, curso, nombreGrupo));
+	            writer.newLine();
+	        }
 
-			System.out.println("Datos de los alumnos guardados correctamente en el fichero 'alumnos.txt'.");
-			loggerGeneral.info("Los datos de los alumnos se guardaron correctamente en el fichero '{}'.",
-					nombreFichero);
+	        System.out.println("Datos de los alumnos guardados correctamente en el fichero 'alumnos.txt'.");
+	        loggerGeneral.info("Los datos de los alumnos se guardaron correctamente en el fichero '{}'.", nombreFichero);
 
-		} catch (SQLException e) {
-			loggerExcepciones.error("Error al ejecutar la consulta SQL: {}", e.getMessage(), e);
-			System.out.println("Se produjo un error al recuperar los datos. Revisa los logs para más detalles.");
-		} catch (IOException e) {
-			loggerExcepciones.error("Error al escribir en el fichero '{}': {}", nombreFichero, e.getMessage(), e);
-			System.out.println("Se produjo un error al escribir en el fichero. Revisa los logs para más detalles.");
-		}
+	    } catch (SQLException e) {
+	        loggerExcepciones.error("Error al ejecutar la consulta SQL: {}", e.getMessage(), e);
+	        System.out.println("Se produjo un error al recuperar los datos. Revisa los logs para más detalles.");
+	    } catch (IOException e) {
+	        loggerExcepciones.error("Error al escribir en el fichero '{}': {}", nombreFichero, e.getMessage(), e);
+	        System.out.println("Se produjo un error al escribir en el fichero. Revisa los logs para más detalles.");
+	    }
 	}
+
 
 	/**
 	 * Lee los alumnos desde el fichero de texto 'alumnos.txt' y los inserta en la
@@ -470,71 +486,142 @@ public class AlumnosBD implements IAlumnosDao {
 			return -1; // Devolver -1 en caso de error
 		}
 	}
+	
+	// TAREA 16:
+	
+	 /**
+     * Ejecuta una operación genérica en la base de datos basada en un NIA.
+     * 
+     * @param conexionBD         La conexión a la base de datos.
+     * @param sql                La consulta SQL a ejecutar.
+     * @param configuracionParams Función para configurar los parámetros del PreparedStatement.
+     * @return true si la operación afecta filas en la base de datos, false en caso contrario.
+     */
+    public boolean ejecutarOperacionConNIA(Connection conexionBD, String sql,
+            Consumer<PreparedStatement> configuracionParams) {
+        try (PreparedStatement sentencia = conexionBD.prepareStatement(sql)) {
+            // Configurar los parámetros usando la función pasada como argumento
+            configuracionParams.accept(sentencia);
 
-	/**
-	 * Modifica el nombre de un alumno en la base de datos basado en su NIA.
-	 * 
-	 * @param conexion    conexión a la base de datos.
-	 * @param nia         NIA del alumno.
-	 * @param nuevoNombre nuevo nombre del alumno.
-	 * @return true si la modificación fue exitosa; false en caso contrario.
-	 */
-	@Override
-	public boolean modificarNombreAlumnoPorNia(Connection conexion, int nia, String nuevoNombre) {
-		String sql = "UPDATE alumnos SET nombre = ? WHERE nia = ?";
-		try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
-			// Establecer los valores
-			sentencia.setString(1, nuevoNombre);
-			sentencia.setInt(2, nia);
+            // Ejecutar la consulta
+            int filasAfectadas = sentencia.executeUpdate();
 
-			// Ejecutar la actualización
-			int filasActualizadas = sentencia.executeUpdate();
+            if (filasAfectadas > 0) {
+                loggerGeneral.info("Operación ejecutada correctamente. SQL: {}", sql);
+                return true;
+            } else {
+                loggerGeneral.warn("Operación no afectó filas. SQL: {}", sql);
+                return false;
+            }
+        } catch (SQLException e) {
+            loggerExcepciones.error("Error al ejecutar la operación SQL '{}': {}", sql, e.getMessage(), e);
+            System.out.println("Error en la operación: " + e.getMessage());
+            return false;
+        }
+    }
 
-			if (filasActualizadas > 0) {
-				loggerGeneral.info("Nombre del alumno con NIA {} modificado exitosamente a '{}'", nia, nuevoNombre);
-				return true;
-			} else {
-				loggerGeneral.warn("No se encontró un alumno con NIA {} para modificar el nombre", nia);
-				return false;
-			}
-		} catch (SQLException e) {
-			loggerExcepciones.error("Error al modificar el nombre del alumno con NIA {}: {}", nia, e.getMessage(), e);
-			System.out.println("Error al modificar el nombre del alumno: " + e.getMessage());
-			return false;
-		}
-	}
+    /**
+     * Modifica el nombre de un alumno en la base de datos basado en su NIA.
+     * 
+     * @param conexion    conexión a la base de datos.
+     * @param nia         NIA del alumno.
+     * @param nuevoNombre nuevo nombre del alumno.
+     * @return true si la modificación fue exitosa; false en caso contrario.
+     */
+    @Override
+    public boolean modificarNombreAlumnoPorNIA(Connection conexion, int nia, String nuevoNombre) {
+        String sql = "UPDATE alumnos SET nombre = ? WHERE nia = ?";
 
-	/**
-	 * Elimina un alumno de la base de datos a partir de su NIA.
-	 * 
-	 * @param conexionBD la conexión a la base de datos.
-	 * @param nia        el NIA del alumno a eliminar.
-	 * @return true si el alumno fue eliminado correctamente, false en caso
-	 *         contrario.
-	 */
-	@Override
-	public boolean eliminarAlumnoPorNIA(Connection conexionBD, int nia) {
-		String sql = "DELETE FROM alumnos WHERE nia = ?";
+        return ejecutarOperacionConNIA(conexion, sql, sentencia -> {
+            try {
+                sentencia.setString(1, nuevoNombre);
+                sentencia.setInt(2, nia);
+            } catch (SQLException e) {
+                throw new RuntimeException("Error al configurar los parámetros", e);
+            }
+        });
+    }
 
-		try (PreparedStatement sentencia = conexionBD.prepareStatement(sql)) {
-			sentencia.setInt(1, nia);
+    /**
+     * Elimina un alumno de la base de datos a partir de su NIA.
+     * 
+     * @param conexionBD la conexión a la base de datos.
+     * @param nia        el NIA del alumno a eliminar.
+     * @return true si el alumno fue eliminado correctamente, false en caso
+     *         contrario.
+     */
+    @Override
+    public boolean eliminarAlumnoPorNIA(Connection conexionBD, int nia) {
+        String sql = "DELETE FROM alumnos WHERE nia = ?";
 
-			// Ejecutar la consulta
-			int filasAfectadas = sentencia.executeUpdate();
+        return ejecutarOperacionConNIA(conexionBD, sql, sentencia -> {
+            try {
+                sentencia.setInt(1, nia);
+            } catch (SQLException e) {
+                throw new RuntimeException("Error al configurar los parámetros", e);
+            }
+        });
+    }
 
-			if (filasAfectadas > 0) {
-				loggerGeneral.info("Alumno con NIA {} eliminado exitosamente", nia);
-				return true;
-			} else {
-				loggerGeneral.warn("No se encontró un alumno con NIA {} para eliminar", nia);
-				return false;
-			}
-		} catch (SQLException e) {
-			loggerExcepciones.error("Error al eliminar el alumno con NIA {}: {}", nia, e.getMessage(), e);
-			System.out.println("Error al eliminar el alumno: " + e.getMessage());
-			return false;
-		}
-	}
+    /**
+     * Muestra toda la información de un alumno basándose en su NIA.
+     * 
+     * @param conexionBD La conexión a la base de datos.
+     * @param nia        El NIA del alumno a mostrar.
+     * @return true si el alumno fue encontrado y mostrado; false en caso contrario.
+     */
+    @Override
+    public boolean mostrarAlumnoPorNIA(Connection conexionBD, int nia) {
+        String sql = """
+                SELECT a.nia, a.nombre, a.apellidos, a.genero, a.fechaNacimiento,
+                       a.ciclo, a.curso, g.nombreGrupo
+                FROM alumnos a
+                LEFT JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
+                WHERE a.nia = ?
+            """;
+
+        try (PreparedStatement sentencia = conexionBD.prepareStatement(sql)) {
+            sentencia.setInt(1, nia);
+
+            try (ResultSet resultado = sentencia.executeQuery()) {
+                if (!resultado.isBeforeFirst()) {
+                    System.out.println("No se encontró un alumno con el NIA proporcionado.");
+                    loggerGeneral.warn("No se encontró un alumno con NIA {}.", nia);
+                    return false;
+                }
+
+                // Mostrar datos del alumno
+                while (resultado.next()) {
+                    System.out.printf("""
+                            NIA: %d
+                            Nombre: %s
+                            Apellidos: %s
+                            Género: %s
+                            Fecha de nacimiento: %s
+                            Ciclo: %s
+                            Curso: %s
+                            Grupo: %s
+                            -------------------------
+                            """,
+                            resultado.getInt("nia"),
+                            resultado.getString("nombre"),
+                            resultado.getString("apellidos"),
+                            resultado.getString("genero"),
+                            resultado.getDate("fechaNacimiento"),
+                            resultado.getString("ciclo"),
+                            resultado.getString("curso"),
+                            resultado.getString("nombreGrupo")
+                    );
+                }
+                loggerGeneral.info("Información del alumno con NIA {} mostrada correctamente.", nia);
+                return true;
+            }
+        } catch (SQLException e) {
+            loggerExcepciones.error("Error al consultar información del alumno con NIA {}: {}", nia, e.getMessage(), e);
+            System.out.println("Se produjo un error al mostrar la información del alumno. Revisa los logs.");
+            return false;
+        }
+    }
 
 	@Override
 	public boolean eliminarAlumnosPorApellidos(Connection conexionBD, String apellidos) throws SQLException {

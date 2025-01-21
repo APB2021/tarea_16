@@ -1,7 +1,9 @@
 package dao;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.function.Consumer;
 
 import modelo.Alumno;
 import modelo.Grupo;
@@ -15,7 +17,7 @@ public class AlumnosFicheroXML implements IAlumnosDao{
 	}
 
 	@Override
-	public boolean mostrarTodosLosAlumnos(Connection conexionBD) throws SQLException {
+	public boolean mostrarTodosLosAlumnos(Connection conexionBD, boolean mostrarTodaLaInformacion) throws SQLException {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -33,7 +35,7 @@ public class AlumnosFicheroXML implements IAlumnosDao{
 	}
 
 	@Override
-	public boolean modificarNombreAlumnoPorNia(Connection conexion, int nia, String nuevoNombre) throws SQLException {
+	public boolean modificarNombreAlumnoPorNIA(Connection conexion, int nia, String nuevoNombre) throws SQLException {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -90,6 +92,19 @@ public class AlumnosFicheroXML implements IAlumnosDao{
 	public Alumno solicitarDatosAlumno() throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public boolean mostrarAlumnoPorNIA(Connection conexionBD, int nia) throws SQLException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean ejecutarOperacionConNIA(Connection conexionBD, String sql,
+			Consumer<PreparedStatement> configuracionParams) throws SQLException {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

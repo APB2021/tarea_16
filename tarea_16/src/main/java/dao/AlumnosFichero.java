@@ -1,12 +1,14 @@
 package dao;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.function.Consumer;
 
 import modelo.Alumno;
 import modelo.Grupo;
 
-public class AlumnosFichero implements IAlumnosDao{
+public class AlumnosFichero implements IAlumnosDao {
 
 	@Override
 	public boolean insertarAlumno(Connection conexionBD, Alumno alumno) throws SQLException {
@@ -15,7 +17,7 @@ public class AlumnosFichero implements IAlumnosDao{
 	}
 
 	@Override
-	public boolean mostrarTodosLosAlumnos(Connection conexionBD) throws SQLException {
+	public boolean mostrarTodosLosAlumnos(Connection conexionBD, boolean mostrarTodaLaInformacion) throws SQLException {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -23,7 +25,7 @@ public class AlumnosFichero implements IAlumnosDao{
 	@Override
 	public void guardarAlumnosEnFicheroTexto(Connection conexionBD) throws SQLException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
@@ -33,7 +35,7 @@ public class AlumnosFichero implements IAlumnosDao{
 	}
 
 	@Override
-	public boolean modificarNombreAlumnoPorNia(Connection conexion, int nia, String nuevoNombre) throws SQLException {
+	public boolean modificarNombreAlumnoPorNIA(Connection conexion, int nia, String nuevoNombre) throws SQLException {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -53,7 +55,7 @@ public class AlumnosFichero implements IAlumnosDao{
 	@Override
 	public void guardarAlumnosEnFicheroJSON(Connection conexionBD) throws SQLException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
@@ -77,7 +79,7 @@ public class AlumnosFichero implements IAlumnosDao{
 	@Override
 	public void guardarGruposEnFicheroJSON(Connection conexionBD) throws SQLException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
@@ -90,6 +92,19 @@ public class AlumnosFichero implements IAlumnosDao{
 	public Alumno solicitarDatosAlumno() throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public boolean mostrarAlumnoPorNIA(Connection conexionBD, int nia) throws SQLException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean ejecutarOperacionConNIA(Connection conexionBD, String sql,
+			Consumer<PreparedStatement> configuracionParams) throws SQLException {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

@@ -1,7 +1,9 @@
 package dao;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.function.Consumer;
 
 import modelo.Alumno;
 import modelo.Grupo;
@@ -14,15 +16,20 @@ public interface IAlumnosDao {
 
 	public Alumno solicitarDatosAlumno() throws SQLException;
 
-	public boolean mostrarTodosLosAlumnos(Connection conexionBD) throws SQLException;
+	public boolean mostrarTodosLosAlumnos(Connection conexionBD, boolean mostrarTodaLaInformacion) throws SQLException;
 
 	public void guardarAlumnosEnFicheroTexto(Connection conexionBD) throws SQLException;
 
 	public boolean leerAlumnosDeFicheroTexto(Connection conexionBD) throws SQLException;
 
-	public boolean modificarNombreAlumnoPorNia(Connection conexion, int nia, String nuevoNombre) throws SQLException;
+	public boolean ejecutarOperacionConNIA(Connection conexionBD, String sql,
+			Consumer<PreparedStatement> configuracionParams) throws SQLException;
+
+	public boolean modificarNombreAlumnoPorNIA(Connection conexion, int nia, String nuevoNombre) throws SQLException;
 
 	public boolean eliminarAlumnoPorNIA(Connection conexionBD, int nia) throws SQLException;
+
+	boolean mostrarAlumnoPorNIA(Connection conexionBD, int nia) throws SQLException;
 
 	public boolean eliminarAlumnosPorApellidos(Connection conexionBD, String apellidos) throws SQLException;
 

@@ -2,8 +2,11 @@ package vista;
 
 import java.io.File;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.util.function.Consumer;
 
 import dao.IAlumnosDao;
 import dao.AlumnosBD;
@@ -67,6 +70,7 @@ public class VistaConsola implements IVista {
 				10. Leer un archivo XML de grupos y guardar los datos en la BD.
 				---- Menú Tarea 16 --------------------------------------------
 				11. Mostrar todos los alumnos del grupo elegido.
+				12. Mostrar todos los datos de un alumno por su NIA.
 				0. Salir.
 				---------------------------------------------------------------
 				""";
@@ -84,18 +88,20 @@ public class VistaConsola implements IVista {
 	private void gestionarOpcion(int opcion, IAlumnosDao modelo) {
 		switch (opcion) {
 
-		case 1 -> insertarNuevoAlumno(modelo);
+		case 1 -> insertarNuevoAlumno(modelo);		
 		case 2 -> insertarNuevoGrupo(modelo);
-		case 3 -> mostrarTodosLosAlumnos();
+		case 3 -> mostrarTodosLosAlumnos(true); // Mostrará toda la información de todos los alumnos
 		case 4 -> guardarAlumnosEnFicheroTexto();
 		case 5 -> leerAlumnosDesdeFichero();
-		case 6 -> modificarNombreAlumnoPorNia();
+		//case 6 -> modificarNombreAlumnoPorNia();
+		case 6 -> ejecutarOperacionConNIA(null, null, null);
 		case 7 -> eliminarAlumnoPorNIA();
 		case 8 -> eliminarAlumnosPorGrupo();
 		case 9 -> guardarGruposEnXML();
 		case 10 -> leerYGuardarGruposXML();
 		// Tarea 16:
 		case 11 -> mostrarAlumnosPorGrupo(modelo);
+		case 12 -> mostrarTodosLosAlumnos(false);  // Mostrará únicamente el nia y el nombre de todos los alumnos
 		case 0 -> System.out.println("Saliendo del programa...");
 		default -> System.out.println("Opción no válida. Intenta de nuevo.");
 		}
@@ -105,91 +111,69 @@ public class VistaConsola implements IVista {
 	 * Permite insertar un nuevo alumno solicitando los datos al usuario y
 	 * almacenándolos en la base de datos.
 	 * 
-	 * @param modelo
+	 * @param modelo el objeto DAO para gestionar las operaciones de alumnos.
 	 */
 	public void insertarNuevoAlumno(IAlumnosDao modelo) {
-		Connection conexionBD = null;
+	    try {
+	        // Solicitar datos del alumno al usuario
+	        Alumno alumno = modelo.solicitarDatosAlumno();
 
-		try {
-			Alumno alumno = null;
-			try {
-				alumno = modelo.solicitarDatosAlumno();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			conexionBD = PoolConexiones.getConnection();
-
-			if (alumnosDao.insertarAlumno(conexionBD, alumno)) {
-				System.out.println("Alumno insertado correctamente.");
-			} else {
-				System.out.println("Error al insertar el alumno.");
-			}
-		} catch (Exception e) {
-			System.out.println("Ocurrió un error al insertar el alumno: " + e.getMessage());
-		} finally {
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+	        // Uso de try-with-resources para manejar automáticamente la conexión
+	        try (Connection conexionBD = PoolConexiones.getConnection()) {
+	            // Insertar el alumno en la base de datos
+	            if (alumnosDao.insertarAlumno(conexionBD, alumno)) {
+	                System.out.println("Alumno insertado correctamente.");
+	            } else {
+	                System.out.println("Error al insertar el alumno.");
+	            }
+	        }
+	    } catch (Exception e) {
+	        System.out.println("Ocurrió un error al insertar el alumno: " + e.getMessage());
+	        e.printStackTrace(); // Para registrar el stack trace en caso de errores inesperados
+	    }
 	}
 
 	/**
 	 * Permite insertar un nuevo grupo solicitando los datos al usuario y
 	 * almacenándolos en la base de datos.
+	 *
+	 * @param modelo el DAO que permite interactuar con la base de datos.
 	 */
 	public void insertarNuevoGrupo(IAlumnosDao modelo) {
-		Connection conexionBD = null;
-		String nombreGrupo;
+	    String nombreGrupo;
 
-		try {
-			// Pedimos al usuario el nombre del nuevo grupo con validación
-			while (true) {
-				System.out.println("Introduce el nombre del nuevo grupo (una letra):");
-				nombreGrupo = sc.nextLine().toUpperCase().trim();
+	    // Solicitar al usuario el nombre del nuevo grupo con validación
+	    while (true) {
+	        System.out.println("Introduce el nombre del nuevo grupo (una letra):");
+	        nombreGrupo = sc.nextLine().toUpperCase().trim();
 
-				// Validamos que el nombre sea solo una letra
-				if (nombreGrupo.length() == 1 && nombreGrupo.matches("[A-Za-z]")) {
-					break; // Salimos del bucle si la validación es exitosa
-				} else {
-					System.out.println("El nombre del grupo debe ser una sola letra.");
-				}
-			}
+	        // Validamos que el nombre sea solo una letra
+	        if (nombreGrupo.length() == 1 && nombreGrupo.matches("[A-Za-z]")) {
+	            break; // Salimos del bucle si la validación es exitosa
+	        } else {
+	            System.out.println("El nombre del grupo debe ser una sola letra.");
+	        }
+	    }
 
-			// Crear objeto Grupo
-			Grupo grupo = new Grupo(nombreGrupo);
+	    // Crear objeto Grupo
+	    Grupo grupo = new Grupo(nombreGrupo);
 
-			// Obtener la conexión a la base de datos
-			conexionBD = PoolConexiones.getConnection();
-
-			// Intentamos insertar el nuevo grupo
-			if (alumnosDao.insertarGrupo(conexionBD, grupo)) {
-				System.out.println("Grupo insertado correctamente.");
-			} else {
-				System.out.println("Error al insertar el grupo.");
-			}
-		} catch (Exception e) {
-			System.out.println("Ocurrió un error al insertar el grupo: " + e.getMessage());
-		} finally {
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+	    // Intentamos insertar el nuevo grupo utilizando try-with-resources
+	    try (Connection conexionBD = PoolConexiones.getConnection()) {
+	        // Llamamos al método del DAO para insertar el grupo
+	        if (modelo.insertarGrupo(conexionBD, grupo)) {
+	            System.out.println("Grupo insertado correctamente.");
+	        } else {
+	            System.out.println("Error al insertar el grupo.");
+	        }
+	    } catch (Exception e) {
+	        System.out.println("Ocurrió un error al insertar el grupo: " + e.getMessage());
+	    }
 	}
 
-	public void mostrarTodosLosAlumnos() {
+	public void mostrarTodosLosAlumnos(boolean mostrarTodaLaInformación) {
 		try (Connection conexionBD = PoolConexiones.getConnection()) {
-			if (alumnosDao.mostrarTodosLosAlumnos(conexionBD)) {
+			if (alumnosDao.mostrarTodosLosAlumnos(conexionBD, mostrarTodaLaInformación)) {
 				System.out.println("Los alumnos se han mostrado correctamente.");
 			} else {
 				System.out.println("No se pudieron mostrar los alumnos.");
@@ -238,85 +222,74 @@ public class VistaConsola implements IVista {
 			System.out.println("Error: " + e.getMessage());
 		}
 	}
+	
+	// TAREA 16:
+	
+	public boolean ejecutarOperacionConNIA(Connection conexionBD, String sql,
+			Consumer<PreparedStatement> configuracionParams) {
+				return false;
+		
+	};
 
 	/**
 	 * Permite modificar el nombre de un alumno solicitando su NIA y el nuevo
 	 * nombre.
 	 */
 	public void modificarNombreAlumnoPorNia() {
-		Connection conexionBD = null;
-		try {
-			// Solicitar al usuario el NIA del alumno
-			System.out.print("Introduce el NIA del alumno cuyo nombre quieres modificar: ");
-			int nia = sc.nextInt();
-			sc.nextLine(); // Limpiar buffer
+	    try {
+	        // Solicitar al usuario el NIA del alumno
+	        System.out.print("Introduce el NIA del alumno cuyo nombre quieres modificar: ");
+	        int nia = sc.nextInt();
+	        sc.nextLine(); // Limpiar buffer
 
-			// Solicitar el nuevo nombre del alumno
-			System.out.print("Introduce el nuevo nombre para el alumno: ");
-			String nuevoNombre = sc.nextLine().trim().toUpperCase();
+	        // Solicitar el nuevo nombre del alumno
+	        System.out.print("Introduce el nuevo nombre para el alumno: ");
+	        String nuevoNombre = sc.nextLine().trim().toUpperCase();
 
-			// Validar que el nombre no esté vacío
-			if (nuevoNombre.isEmpty()) {
-				System.out.println("El nombre no puede estar vacío.");
-				return;
-			}
+	        // Validar que el nombre no esté vacío
+	        if (nuevoNombre.isEmpty()) {
+	            System.out.println("El nombre no puede estar vacío.");
+	            return;
+	        }
 
-			// Conectar a la base de datos
-			conexionBD = PoolConexiones.getConnection();
-
-			// Llamar al método del gestor para modificar el nombre
-			if (alumnosDao.modificarNombreAlumnoPorNia(conexionBD, nia, nuevoNombre)) {
-				System.out.println("Nombre del alumno modificado correctamente.");
-			} else {
-				System.out.println("No se pudo modificar el nombre del alumno. Verifica el NIA.");
-			}
-		} catch (Exception e) {
-			System.out.println("Ocurrió un error al modificar el nombre del alumno: " + e.getMessage());
-		} finally {
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+	        // Usar try-with-resources para gestionar la conexión a la base de datos
+	        try (Connection conexionBD = PoolConexiones.getConnection()) {
+	            // Llamar al método del gestor para modificar el nombre
+	            if (alumnosDao.modificarNombreAlumnoPorNIA(conexionBD, nia, nuevoNombre)) {
+	                System.out.println("Nombre del alumno modificado correctamente.");
+	            } else {
+	                System.out.println("No se pudo modificar el nombre del alumno. Verifica el NIA.");
+	            }
+	        } // La conexión se cierra automáticamente aquí
+	    } catch (Exception e) {
+	        System.out.println("Ocurrió un error al modificar el nombre del alumno: " + e.getMessage());
+	    }
 	}
+
 
 	/**
 	 * Permite eliminar un alumno de la base de datos a partir de su NIA (PK).
 	 */
 	public void eliminarAlumnoPorNIA() {
-		Connection conexionBD = null;
+	    try {
+	        // Solicitar NIA al usuario
+	        System.out.println("Introduce el NIA del alumno a eliminar:");
+	        int nia = sc.nextInt();
+	        sc.nextLine(); // Limpiar buffer
 
-		try {
-			// Solicitar NIA al usuario
-			System.out.println("Introduce el NIA del alumno a eliminar:");
-			int nia = sc.nextInt();
-			sc.nextLine(); // Limpiar buffer
-
-			// Obtener la conexión a la base de datos
-			conexionBD = PoolConexiones.getConnection();
-
-			// Intentar eliminar el alumno
-			if (alumnosDao.eliminarAlumnoPorNIA(conexionBD, nia)) {
-				System.out.println("Alumno eliminado correctamente.");
-			} else {
-				System.out.println("No se encontró un alumno con el NIA proporcionado.");
-			}
-		} catch (Exception e) {
-			System.out.println("Ocurrió un error al intentar eliminar el alumno: " + e.getMessage());
-		} finally {
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+	        // Usar try-with-resources para manejar la conexión a la base de datos
+	        try (Connection conexionBD = PoolConexiones.getConnection()) {
+	            // Intentar eliminar el alumno
+	            if (alumnosDao.eliminarAlumnoPorNIA(conexionBD, nia)) {
+	                System.out.println("Alumno eliminado correctamente.");
+	            } else {
+	                System.out.println("No se encontró un alumno con el NIA proporcionado.");
+	            }
+	        }
+	    } catch (Exception e) {
+	        System.out.println("Ocurrió un error al intentar eliminar el alumno: " + e.getMessage());
+	        // Aquí también podrías añadir un log en nivel ERROR si estás usando Log4j
+	    }
 	}
 
 	/**
@@ -325,12 +298,7 @@ public class VistaConsola implements IVista {
 	 * todos los alumnos que pertenezcan al grupo seleccionado.
 	 */
 	public void eliminarAlumnosPorGrupo() {
-		Connection conexionBD = null;
-
-		try {
-			// Establecemos conexión con la base de datos
-			conexionBD = PoolConexiones.getConnection();
-
+		try (Connection conexionBD = PoolConexiones.getConnection()) {
 			// Mostramos los grupos disponibles
 			System.out.println("Grupos disponibles:");
 			if (!AlumnosBD.mostrarTodosLosGrupos(conexionBD)) {
@@ -361,54 +329,29 @@ public class VistaConsola implements IVista {
 			}
 		} catch (Exception e) {
 			System.out.println("Ocurrió un error al eliminar alumnos por grupo: " + e.getMessage());
-		} finally {
-			try {
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+		} 
 	}
+
 
 	/**
 	 * Método que se encarga de guardar los grupos y sus alumnos en un archivo XML.
-	 * Utiliza la conexión a la base de datos proporcionada por la clase
-	 * ConexionBDMySQL.
+	 * Utiliza la conexión a la base de datos proporcionada por el pool de conexiones.
 	 */
 	public void guardarGruposEnXML() {
-		// Variable para almacenar la conexión a la base de datos
-		Connection conexionBD = null;
-
-		try {
-			// Obtenemos la conexión a la base de datos mediante la clase ConexionBDMySQL
-			conexionBD = PoolConexiones.getConnection();
-
-			// Llamamos al método de GestorGrupos para guardar los grupos en el archivo XML
-			if (AlumnosBD.guardarGruposEnXML(conexionBD)) {
-				// Si el proceso es exitoso, mostramos un mensaje de éxito
-				System.out.println("Archivo XML guardado correctamente.");
-			} else {
-				// Si hubo algún error, mostramos un mensaje de fallo
-				System.out.println("Error al guardar el archivo XML.");
-			}
-		} catch (Exception e) {
-			// Capturamos cualquier excepción y mostramos el mensaje de error
-			System.out.println("Ocurrió un error al guardar los grupos en XML: " + e.getMessage());
-		} finally {
-			try {
-				// Cerramos la conexión a la base de datos en el bloque finally
-				if (conexionBD != null && !conexionBD.isClosed()) {
-					conexionBD.close();
-					System.out.println("Conexión a la base de datos cerrada.");
-				}
-			} catch (Exception e) {
-				// Capturamos cualquier error al cerrar la conexión
-				System.out.println("Error al cerrar la conexión: " + e.getMessage());
-			}
-		}
+	    // Usamos try-with-resources para gestionar automáticamente el cierre de la conexión
+	    try (Connection conexionBD = PoolConexiones.getConnection()) {
+	        // Llamamos al método de GestorGrupos para guardar los grupos en el archivo XML
+	        if (AlumnosBD.guardarGruposEnXML(conexionBD)) {
+	            // Si el proceso es exitoso, mostramos un mensaje de éxito
+	            System.out.println("Archivo XML guardado correctamente.");
+	        } else {
+	            // Si hubo algún error, mostramos un mensaje de fallo
+	            System.out.println("Error al guardar el archivo XML.");
+	        }
+	    } catch (Exception e) {
+	        // Capturamos cualquier excepción y mostramos el mensaje de error
+	        System.out.println("Ocurrió un error al guardar los grupos en XML: " + e.getMessage());
+	    }
 	}
 
 	/**
@@ -451,7 +394,7 @@ public class VistaConsola implements IVista {
 	 * @param modelo Objeto que implementa la interfaz IAlumnosDao para realizar
 	 *               operaciones con la base de datos.
 	 */
-	private void mostrarAlumnosPorGrupo(IAlumnosDao modelo) {
+	public void mostrarAlumnosPorGrupo(IAlumnosDao modelo) {
 		try (Connection conexionBD = PoolConexiones.getConnection()) {
 			// Llamar al método mostrarAlumnosPorGrupo desde el modelo (AlumnosBD)
 			((AlumnosBD) modelo).mostrarAlumnosPorGrupo(conexionBD);
@@ -459,4 +402,5 @@ public class VistaConsola implements IVista {
 			System.out.println("Se produjo un error al intentar mostrar los alumnos por grupo. Revisa los logs.");
 		}
 	}
+
 }
