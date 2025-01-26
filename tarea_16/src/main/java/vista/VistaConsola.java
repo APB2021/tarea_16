@@ -72,6 +72,7 @@ public class VistaConsola implements IVista {
 				11. Mostrar todos los alumnos del grupo elegido.
 				12. Mostrar todos los datos de un alumno por su NIA.
 				13. Cambiar de grupo al alumno que elija el usuario.
+				14. Guardar el grupo que elija el usuario en un fichero XML.
 				0. Salir.
 				---------------------------------------------------------------
 				""";
@@ -104,6 +105,7 @@ public class VistaConsola implements IVista {
 		case 11 -> mostrarAlumnosPorGrupo(modelo);
 		case 12 -> mostrarTodosLosAlumnos(false); // Mostrará únicamente el nia y el nombre de todos los alumnos
 		case 13 -> cambiarGrupoAlumno(modelo);
+		case 14 -> guardarGrupoEspecificoEnXML(modelo);
 		case 0 -> System.out.println("Saliendo del programa...");
 		default -> System.out.println("Opción no válida. Intenta de nuevo.");
 		}
@@ -419,6 +421,23 @@ public class VistaConsola implements IVista {
 			System.out.println("Se produjo un error al intentar cambiar al alumno de grupo. Revisa los logs.");
 		}
 
+	}
+	
+	/**
+	 * Guarda un grupo específico con toda su información (incluyendo los alumnos)
+	 * en un archivo XML.
+	 * 
+	 * @param conexionBD  La conexión activa a la base de datos MySQL.
+	 * @param numeroGrupo El número del grupo que se desea guardar.
+	 * @return true si el archivo se guarda correctamente, false si ocurre un error.
+	 */
+	public void guardarGrupoEspecificoEnXML(IAlumnosDao modelo) {
+		try (Connection conexionBD = PoolConexiones.getConnection()) {
+			// Llamar al método guardarGrupoEspecificoEnXML desde el modelo (AlumnosBD)
+			((AlumnosBD) modelo).guardarGrupoEspecificoEnXML(conexionBD);
+		} catch (Exception e) {
+			System.out.println("Se produjo un error al intentar cambiar al alumno de grupo. Revisa los logs.");
+		}
 	}
 
 }

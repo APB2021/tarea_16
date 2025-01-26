@@ -1117,4 +1117,124 @@ public class AlumnosBD implements IAlumnosDao {
 			return false;
 		}
 	}
+
+	/**
+	 * Guarda un grupo específico con toda su información (incluyendo los alumnos)
+	 * en un archivo XML. Solicita al usuario el nombre del grupo.
+	 * 
+	 * @param conexionBD La conexión activa a la base de datos MySQL.
+	 * @return true si el archivo se guarda correctamente, false si ocurre un error.
+	 */
+	public boolean guardarGrupoEspecificoEnXML(Connection conexionBD) {
+	    System.out.print("Introduce el nombre del grupo que deseas guardar en fichero XML: ");
+	    String nombreGrupo = sc.nextLine().toUpperCase();
+
+	    // Validar si el grupo existe
+	    if (!validarNombreGrupo(nombreGrupo)) {
+	        System.out.println("El grupo '" + nombreGrupo + "' no existe en la base de datos.");
+	        loggerGeneral.warn("El grupo '{}' no existe en la base de datos.", nombreGrupo);
+	        return false;
+	    }
+
+	    // Obtener el número del grupo a partir del nombre
+	    int numeroGrupo = obtenerNumeroGrupoPorNombre(conexionBD, nombreGrupo);
+	    if (numeroGrupo == -1) {
+	        System.out.println("Error al obtener el número del grupo para: " + nombreGrupo);
+	        loggerGeneral.error("No se pudo obtener el número del grupo para '{}'.", nombreGrupo);
+	        return false;
+	    }
+
+	    String nombreArchivo = "grupo_" + nombreGrupo + ".xml";
+
+	    File archivoXML = new File(nombreArchivo);
+	    if (archivoXML.exists()) {
+	        System.out.print("El archivo " + nombreArchivo + " ya existe. ¿Deseas sobrescribirlo? (S/N): ");
+	        String respuesta = sc.nextLine();
+
+	        if (!respuesta.equalsIgnoreCase("s")) {
+	            loggerGeneral.warn("No se ha sobrescrito el archivo XML porque el usuario no lo permitió.");
+	            System.out.println("El archivo no se ha sobrescrito.");
+	            return false;
+	        }
+	    }
+
+	    DocumentBuilderFactory documentoFactory = DocumentBuilderFactory.newInstance();
+	    try {
+	        DocumentBuilder documentoBuilder = documentoFactory.newDocumentBuilder();
+	        Document documentoXML = documentoBuilder.newDocument();
+
+	        Element raizElement = documentoXML.createElement("grupo");
+	        documentoXML.appendChild(raizElement);
+
+	        String consultaGrupo = "SELECT * FROM grupos WHERE numeroGrupo = ?";
+	        try (PreparedStatement stmtGrupo = conexionBD.prepareStatement(consultaGrupo)) {
+	            stmtGrupo.setInt(1, numeroGrupo);
+	            ResultSet rsGrupo = stmtGrupo.executeQuery();
+
+	            if (rsGrupo.next()) {
+	                String nombreGrupoBD = rsGrupo.getString("nombreGrupo");
+
+	                raizElement.setAttribute("numeroGrupo", String.valueOf(numeroGrupo));
+	                raizElement.setAttribute("nombreGrupo", nombreGrupoBD);
+
+	                // Consultar los alumnos del grupo
+	                String consultaAlumnos = "SELECT * FROM alumnos WHERE numeroGrupo = ?";
+	                try (PreparedStatement stmtAlumnos = conexionBD.prepareStatement(consultaAlumnos)) {
+	                    stmtAlumnos.setInt(1, numeroGrupo);
+	                    ResultSet rsAlumnos = stmtAlumnos.executeQuery();
+
+	                    while (rsAlumnos.next()) {
+	                        String nia = rsAlumnos.getString("nia");
+	                        String nombreAlumno = rsAlumnos.getString("nombre");
+	                        String apellidosAlumno = rsAlumnos.getString("apellidos");
+	                        String genero = rsAlumnos.getString("genero");
+	                        String fechaNacimiento = rsAlumnos.getString("fechaNacimiento");
+	                        String curso = rsAlumnos.getString("curso");
+
+	                        Element alumnoElement = documentoXML.createElement("alumno");
+	                        alumnoElement.setAttribute("nia", nia);
+	                        alumnoElement.setAttribute("nombre", nombreAlumno);
+	                        alumnoElement.setAttribute("apellidos", apellidosAlumno);
+	                        alumnoElement.setAttribute("genero", genero);
+	                        alumnoElement.setAttribute("fechaNacimiento", fechaNacimiento);
+	                        alumnoElement.setAttribute("curso", curso);
+
+	                        raizElement.appendChild(alumnoElement);
+	                    }
+	                }
+	            } else {
+	                System.out.println("No se encontró el grupo con el número " + numeroGrupo + ".");
+	                loggerGeneral.warn("El grupo con número {} no existe en la base de datos.", numeroGrupo);
+	                return false;
+	            }
+
+	            // Transformar el documento XML a archivo
+	            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+	            Transformer transformer = transformerFactory.newTransformer();
+	            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+
+	            DOMSource source = new DOMSource(documentoXML);
+	            StreamResult result = new StreamResult(new File(nombreArchivo));
+	            transformer.transform(source, result);
+
+	            loggerGeneral.info("El archivo XML del grupo {} se ha guardado correctamente en {}", numeroGrupo,
+	                    nombreArchivo);
+	            System.out.println("El archivo XML del grupo " + nombreGrupo + " se ha guardado correctamente.");
+	            return true;
+	        } catch (SQLException e) {
+	            loggerExcepciones.error("Error al consultar el grupo o los alumnos: {}", e.getMessage(), e);
+	            System.out.println("Error al consultar el grupo o los alumnos: " + e.getMessage());
+	            return false;
+	        }
+	    } catch (ParserConfigurationException e) {
+	        loggerExcepciones.error("Error al crear el documento XML: {}", e.getMessage(), e);
+	        System.out.println("Error al generar el archivo XML: " + e.getMessage());
+	        return false;
+	    } catch (TransformerException e) {
+	        loggerExcepciones.error("Error al transformar el documento XML: {}", e.getMessage(), e);
+	        System.out.println("Error al transformar el archivo XML: " + e.getMessage());
+	        return false;
+	    }
+	}
+
 }
