@@ -227,15 +227,14 @@ public class AlumnosBD implements IAlumnosDao {
 	 *                       o solo NIA y nombre (false).
 	 * @return true si se muestra la lista correctamente, false en caso contrario.
 	 */
-	@Override
 	public boolean mostrarTodosLosAlumnos(Connection conexionBD, boolean mostrarTodaLaInformacion) {
 	    String sql = """
-	                SELECT a.nia, a.nombre, a.apellidos, a.genero, a.fechaNacimiento,
-	                       a.ciclo, a.curso, g.nombreGrupo
-	                FROM alumnos a
-	                LEFT JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
-	                ORDER BY a.nia
-	            """;
+	            SELECT a.nia, a.nombre, a.apellidos, a.genero, a.fechaNacimiento,
+	                   a.ciclo, a.curso, g.nombreGrupo
+	            FROM alumnos a
+	            LEFT JOIN grupos g ON a.numeroGrupo = g.numeroGrupo
+	            ORDER BY a.nia
+	        """;
 
 	    try (PreparedStatement sentencia = conexionBD.prepareStatement(sql);
 	         ResultSet resultado = sentencia.executeQuery()) {
@@ -252,6 +251,10 @@ public class AlumnosBD implements IAlumnosDao {
 	            System.out.println("Lista de alumnos (NIA y Nombre):");
 	        }
 	        loggerGeneral.info("Mostrando la lista de alumnos registrados.");
+
+	        //Scanner scanner = new Scanner(System.in); // Scanner para recoger el NIA del usuario.
+	        boolean esSeleccion = !mostrarTodaLaInformacion; // Determinar si se pide al usuario seleccionar un NIA.
+	        int niaSeleccionado = -1;
 
 	        while (resultado.next()) {
 	            int nia = resultado.getInt("nia");
@@ -283,6 +286,25 @@ public class AlumnosBD implements IAlumnosDao {
 	                System.out.printf("NIA: %d, Nombre: %s%n", nia, nombre);
 	            }
 	        }
+
+	        // Si el objetivo es que el usuario elija un NIA
+	        if (esSeleccion) {
+	            System.out.println("\nIntroduce el NIA del alumno que deseas visualizar:");
+	            while (true) {
+	                try {
+	                    niaSeleccionado = Integer.parseInt(sc.nextLine().trim());
+	                    break;
+	                } catch (NumberFormatException e) {
+	                    System.out.println("El NIA debe ser un número. Inténtalo de nuevo:");
+	                }
+	            }
+
+	            // Llamar al método para mostrar todos los datos del alumno seleccionado
+	            if (!mostrarAlumnoPorNIA(conexionBD, niaSeleccionado)) {
+	                System.out.println("El NIA seleccionado no corresponde a ningún alumno.");
+	            }
+	        }
+
 	        return true;
 	    } catch (SQLException e) {
 	        loggerExcepciones.error("Error al recuperar la lista de alumnos: {}", e.getMessage(), e);
@@ -290,7 +312,6 @@ public class AlumnosBD implements IAlumnosDao {
 	        return false;
 	    }
 	}
-
 
 	/**
 	 * Guarda todos los alumnos en un fichero de texto. La información incluye sus
