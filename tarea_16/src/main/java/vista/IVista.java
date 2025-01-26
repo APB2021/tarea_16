@@ -21,8 +21,6 @@ public interface IVista {
 	// case 5:
 	public void leerAlumnosDesdeFichero();
 
-	// MÉTODO GENÉRICO:
-
 	// case 6:
 	public void modificarNombreAlumnoPorNia();
 
@@ -41,4 +39,6 @@ public interface IVista {
 	// case 11:
 	public void mostrarAlumnosPorGrupo(IAlumnosDao modelo);
 
+	// case 13:
+	public void cambiarGrupoAlumno(IAlumnosDao modelo);
 }
